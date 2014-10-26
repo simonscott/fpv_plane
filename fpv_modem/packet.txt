@@ -1,0 +1,20 @@
+Variable Name				Variable Size		Units
+-------------               -------------       -------
+
+Packet counter              1 byte              packet #
+12V Battery voltage			2 byte				1mV
+12V Battery current			1 byte				0.2A
+6V Battery voltage          1 byte              10mV + 5V offset
+6V Battery current			1 byte				10mA
+Receiver RSSI               1 byte				Signal strength (255 is max)
+Latitude					3 bytes				sign + 23-bits of 1/100000 of a degree
+Longitude                   4 bytes             1/100000 of a degree (plus and minus)
+*Alt/Bearing/Lock 			2 byte				meters (upper 4 bits, signed) / 0.1 degree / (0xFFFF if no GPS lock)
+*Altitude					1 byte				meters (lower 8 bits)
+*Velocity					1 byte				km/h
+CRC checksum                2 bytes             N/A
+
+Total:						20 bytes
+
+Multiple-byte fields are transmitted in the order: word[0] = LSB to word[x] = MSB
+For position: 1/100 000 of a degree = 1m change in position
