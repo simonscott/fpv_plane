@@ -15,7 +15,7 @@ import struct
 from math import sin, cos, radians, asin, atan2, pi, sqrt
 import datetime
 
-import FPVModemWinV2
+import FPVModemDefns
 
 
 # Compilation parameters
@@ -53,8 +53,8 @@ class FPVComputedProperties:
     filt_altitude = 0
     alt_valid = False
     
-    bat_cap_used_12v = 0
-    bat_cap_used_6v = 0
+    bat_cap_remain_12v = 0
+    bat_cap_remain_6v = 0
 
 
 """
@@ -82,7 +82,7 @@ class FPVModemDecoder:
         # Audio and GUI member variables
         self.updateDisplay = updateDisplayFunc
         self.updateGUIStatus = updateGUIStatusFunc
-        self.updateGUIStatus(FPVModemWinV2.STATE_NO_SIG)
+        self.updateGUIStatus(FPVModemDefns.STATE_NO_SIG)
         self.audio = pyaudio.PyAudio()
 
         # Create buffer variables
@@ -284,7 +284,7 @@ class FPVModemDecoder:
 
             self.pkt_start_aligned = True
             self.pkt_d_start_aligned = True
-            self.updateGUIStatus(FPVModemWinV2.STATE_NORMAL)
+            self.updateGUIStatus(FPVModemDefns.STATE_NORMAL)
 
         #############################################################################
         # By now we have already aligned the next packet with the beginning of the circular buffer
@@ -313,7 +313,7 @@ class FPVModemDecoder:
             if(max_avg_ratio < self.PEAK_AVG_THRES or filter_out_max_pwr < self.filt_threshold):
                 self.mark_samples_read(self.SAMP_CNT_150MS)
                 self.pkt_start_aligned = False
-                self.updateGUIStatus(FPVModemWinV2.STATE_NO_SIG)
+                self.updateGUIStatus(FPVModemDefns.STATE_NO_SIG)
                 return
 
             # Find the position of the first peak in the matched filter output
@@ -324,7 +324,7 @@ class FPVModemDecoder:
             if(self.buf_cnt - peak_idx < (int)(self.pkt_len_symbols * self.symbol_len * self.SAMP_RATE)):
                 self.pkt_start_aligned = False
                 print "Buf too small. Peak idx =", str(peak_idx), " . Must be ", str((int)(self.pkt_len_symbols * self.symbol_len * self.SAMP_RATE)), "\n"
-                self.updateGUIStatus(FPVModemWinV2.STATE_NO_SIG)
+                self.updateGUIStatus(FPVModemDefns.STATE_NO_SIG)
                 return
 
             # Move the read ptr to the begin of the data section of the packet
@@ -379,7 +379,9 @@ class FPVModemDecoder:
 
         # Refresh GUI        
         self.updateDisplay( (int)(self.packet.spektrum_rssi / 255.0 * 100.0), self.fpv_props.filt_altitude,
-                            self.fpv_props.distance, self.packet.speed, self.fpv_props.dir_home, self.total_pkts_lost, not self.waiting_for_home)
+                            self.fpv_props.distance, self.packet.speed, self.fpv_props.dir_home, self.total_pkts_lost,
+                            max_avg_ratio, self.packet.bat_volt_12v, self.fpv_props.bat_cap_remain_12v, self.packet.bat_curr_12v,
+                            self.packet.bat_volt_6v, self.fpv_props.bat_cap_remain_6v, self.packet.bat_curr_6v, not self.waiting_for_home)
 
         # Mark packet as read in circular buffer
         self.mark_samples_read(self.pkt_len_symbols * samps_per_symbol)
@@ -482,9 +484,9 @@ class FPVModemDecoder:
 
             # Determine if GPS lock from bearing
             if(bearing_raw == 0xFFFF):
-                self.updateGUIStatus(FPVModemWinV2.STATE_NO_LOCK)
+                self.updateGUIStatus(FPVModemDefns.STATE_NO_LOCK)
             else:
-                self.updateGUIStatus(FPVModemWinV2.STATE_NORMAL)
+                self.updateGUIStatus(FPVModemDefns.STATE_NORMAL)
                 self.packet.bearing = bearing_raw / 10.0
             
             # Only do further processing if we have a GPS lock

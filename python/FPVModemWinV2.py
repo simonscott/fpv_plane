@@ -3,13 +3,7 @@ import os
 from Compass import *
 from FuelBar import *
 from WarningLight import *
-
-"""
-Constant Definitions
-"""
-STATE_NORMAL = 1
-STATE_NO_SIG = 2
-STATE_NO_LOCK = 3
+from FPVModemDefns import *
 
 
 class FPVModemWinV2(wx.Frame):
@@ -17,23 +11,27 @@ class FPVModemWinV2(wx.Frame):
     """
     Constructor
     """
-    def __init__(self, parent, title):
+    def __init__(self, parent, title, bat_config):
 
         # Initialize the window and sizer
         wx.Frame.__init__(self, parent, title=title, size=(400,770))
         self.num_rows = 23
         self.num_cols = 3
+        self.bat_config = bat_config
         sizer = wx.GridBagSizer(vgap = 4, hgap = 4)
     
         # Pointers to functions in the decoder that run when events occur
         self.set_home = None
         self.close_log = None
 
-        # Add event listeners
-        self.Bind(wx.EVT_CLOSE, self.closeEvent)
-
         # Create the GUI elements
         self.createGUI(sizer)
+
+        # Add event listeners
+        self.Bind(wx.EVT_CLOSE, self.closeEvent)
+        self.Bind(wx.EVT_PAINT, self.OnPaint)
+        self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
+        self.set_home_but.Bind(wx.EVT_BUTTON, self.home_but_handler)
 
         # Set the sizer and make things fit
         for i in range(self.num_rows - 1):
@@ -41,7 +39,6 @@ class FPVModemWinV2(wx.Frame):
         for i in range(self.num_cols):
             sizer.AddGrowableCol(i);
 
-        self.Bind(wx.EVT_PAINT, self.OnPaint)
         self.SetSizer(sizer)
         #sizer.Fit(self)
         self.Show()
@@ -70,6 +67,11 @@ class FPVModemWinV2(wx.Frame):
         dc.DrawLine(0, top_rssi_label, window_width, top_rssi_label)
         dc.DrawLine(0, top_bat_label, window_width, top_bat_label)
       
+
+    def OnEraseBackground(self, event):
+        """ Handles the wx.EVT_ERASE_BACKGROUND event. """
+        pass
+
 
     """
     Create the actual GUI elements
@@ -104,7 +106,7 @@ class FPVModemWinV2(wx.Frame):
 
         # Add the RSSI info
         self.telem_rssi_label = wx.StaticText(self, label="Telem\nRSSI")
-        self.telem_rssi_value = wx.StaticText(self, label="00%")
+        self.telem_rssi_value = wx.StaticText(self, label="000")
         self.lost_pkts_label = wx.StaticText(self, label="Lost\nPackets")
         self.lost_pkts_value = wx.StaticText(self, label="000")
         self.control_rssi_label = wx.StaticText(self, label="Control\nRSSI")
@@ -120,10 +122,10 @@ class FPVModemWinV2(wx.Frame):
         # Add the battery meters
         self.bat_12v_label = wx.StaticText(self, label="12V Batt")
         self.bat_6v_label = wx.StaticText(self, label="6V Batt")
-        self.volt_12v_bar = FuelBar(self, 9.6, 12.6, 'V', 'h', 2)
-        self.volt_6v_bar = FuelBar(self, 6, 7.2, 'V', 'h', 2)
-        self.cap_12v_bar = FuelBar(self, 0, 4000, 'mAh', 'h', 2)
-        self.cap_6v_bar = FuelBar(self, 0, 1600, 'mAh', 'h', 2)
+        self.volt_12v_bar = FuelBar(self, self.bat_config.bat12_min_volt, self.bat_config.bat12_max_volt, 'V', 'h', 2)
+        self.volt_6v_bar = FuelBar(self, self.bat_config.bat6_min_volt, self.bat_config.bat6_max_volt, 'V', 'h', 2)
+        self.cap_12v_bar = FuelBar(self, 0, self.bat_config.bat12_cap, 'mAh', 'h', 2)
+        self.cap_6v_bar = FuelBar(self, 0, self.bat_config.bat6_cap, 'mAh', 'h', 2)
         self.curr_12v_value = wx.StaticText(self, label="00.0 A")
         self.curr_6v_value = wx.StaticText(self, label="000 mA")
 
@@ -173,27 +175,50 @@ class FPVModemWinV2(wx.Frame):
     """
     Updates the display with new data values
     Parameters:
-        state - 
-        rssi - int from 0 to 100
-        alt - integer
-        dist - float
-        speed - integer
-        pkts_lost - integer
-        home_set - boolean
+        alt             - integer, in meters
+        dist            - integer, in meters
+        speed           - integer, in km/h
+        dir_home        - float, in degrees
+        control_rssi    - int from 0 to 100
+        pkts_lost       - integer
+        telem_rssi      - integer from 0 to 100
+        bat12_volt      - float, in volts
+        bat12_cap       - int, in mAh
+        bat12_curr      - float, in amps
+        bat6_volt       - float, in volts
+        bat6_cap        - int, in mAh
+        bat6_curr       - int, in mA
+        home_set        - boolean
     """
-    def updateDisplay(self, rssi, alt, dist, speed, dir_home, pkts_lost, home_set):
+    def updateDisplay(self, control_rssi, alt, dist, speed, dir_home, pkts_lost,
+                        telem_rssi, bat12_volt, bat12_cap, bat12_curr, bat6_volt,
+                        bat6_cap, bat6_curr, home_set):
 
-        self.rssi_value.SetLabel(str(rssi) + "%")
-        self.alt_value.SetLabel(str(alt) + "m")
-        self.dist_value.SetLabel(str(dist) + "m")
+        # Update labels and bar graphs
+        self.alt_value.SetLabel(str(alt) + " m")
+        self.dist_value.SetLabel(str(dist) + " m")
         self.speed_value.SetLabel(str(speed) + " km/h")
         self.compass.SetDirection(dir_home)
-        self.lost_pkt_label.SetLabel("Packets lost: " + str(pkts_lost))
+        self.control_rssi_bar.SetLevel(control_rssi)
+        self.lost_pkts_value.SetLabel(str(pkts_lost))
+        self.telem_rssi_value.SetLabel(str(rssi))
+        self.volt_12v_bar.SetLevel(bat12_volt)
+        self.volt_6v_bar.SetLevel(bat6_volt)
+        self.cap_12v_bar.SetLevel(bat12_cap)
+        self.cap_6v_bar.SetLevel(bat12_cap)
+        self.curr_12v_value.SetLabel('%.1f A' % str(bat12_curr))
+        self.curr_6v_value.SetLabel(str(bat12_curr) + ' mA')
 
+        # Update the button label
         if(home_set):
-            self.start_stop_flight_but.SetLabel("Set Home")
+            self.set_home_but.SetLabel("Set Home")
         else:
-            self.start_stop_flight_but.SetLabel("Waiting...")
+            self.set_home_but.SetLabel("Waiting...")
+
+        # Determine if any warning lights need to be lit
+        # TODO: if bat_volt at min or cap < 20%, warn
+
+        self.Refresh()
     
     """
     Sets the modem status
@@ -201,11 +226,13 @@ class FPVModemWinV2(wx.Frame):
     def updateStatus(self, status):
 
         if status == STATE_NORMAL:
-            self.status_value.SetLabel("")
+            self.warn_light_telem.Off()
         elif status == STATE_NO_SIG:
-            self.status_value.SetLabel("NO SIGNAL")
+            self.warn_light_telem.On()
         elif status == STATE_NO_LOCK:
-            self.status_value.SetLabel("NO GPS LOCK")
+            self.dist_value.SetLabel("NO GPS LOCK")
+
+        self.Refresh()
 
 
     """
@@ -233,7 +260,7 @@ class FPVModemWinV2(wx.Frame):
     """
     Runs when the button is pressed
     """
-    def button_click_handler(self, event):
+    def home_but_handler(self, event):
         self.set_home()
 
 

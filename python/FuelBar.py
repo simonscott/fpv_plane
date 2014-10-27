@@ -96,6 +96,12 @@ class FuelBar(wx.PyControl):
         dc.SetPen(self.black_pen)
         dc.SetBrush(self.trans_brush)
 
+        # Format the label
+        if isinstance(self.level, float):
+            level_str = '%.2f' % self.level
+        else:
+            level_str = str(self.level)
+
         if self.orientation == 'h':
 
             # Compute dimensions and origin
@@ -130,7 +136,7 @@ class FuelBar(wx.PyControl):
             # Draw the value text below the bar
             dc.SetTextForeground("#303030")
             dc.SetFont( wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.NORMAL) )
-            dc.DrawLabel(str(self.level) + ' ' + self.units, (0, height - text_height, width, text_height), alignment=wx.ALIGN_CENTRE|wx.ALIGN_BOTTOM)
+            dc.DrawLabel(level_str + ' ' + self.units, (0, height - text_height, width, text_height), alignment=wx.ALIGN_CENTRE|wx.ALIGN_BOTTOM)
 
         elif self.orientation == 'v':
 
@@ -166,7 +172,7 @@ class FuelBar(wx.PyControl):
             # Draw the value text alongside the bar
             dc.SetTextForeground("#303030")
             dc.SetFont( wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.NORMAL) )
-            dc.DrawLabel(str(self.level) + ' ' + self.units, (width - text_width, 0, text_width, height), alignment=wx.ALIGN_CENTRE|wx.ALIGN_CENTER_VERTICAL)
+            dc.DrawLabel(level_str + ' ' + self.units, (width - text_width, 0, text_width, height), alignment=wx.ALIGN_CENTRE|wx.ALIGN_CENTER_VERTICAL)
 
 
     def OnEraseBackground(self, event):
